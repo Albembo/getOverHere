@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "DevProxy - Nativery",
+  "version": "1.0.0",
+  "description": "Dynamic CORS & Redirect manager with a retro vibe.",
+  "permissions": ["declarativeNetRequest", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "assets/background.js",
+    "scripts": ["assets/background.js"],
+    "type": "module"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "devproxy@nativery.com",
+      "strict_min_version": "109.0"
+    }
+  },
+  "action": {
+    "default_popup": "index.html"
+  }
+}
