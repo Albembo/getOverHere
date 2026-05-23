@@ -11,7 +11,7 @@ export function RulesManager({ rules, onRulesUpdated }) {
 
     const link = document.createElement("a");
     link.href = url;
-    link.download = "devproxy-rules.json";
+    link.download = "getoverhere-rules.json";
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -19,9 +19,7 @@ export function RulesManager({ rules, onRulesUpdated }) {
   const handleImportClick = () => {
     // TRUCCO UX: Se la finestra è più stretta di 780px, siamo nel micro-popup del browser.
     if (window.innerWidth < 780) {
-      const confirmOpen = window.confirm(
-        "⚠️ Il browser chiuderà questa finestrella non appena aprirai il file manager.\n\nClicca OK per aprire DevProxy in una scheda intera e importare il JSON in sicurezza!",
-      );
+      const confirmOpen = window.confirm(browser.i18n.getMessage("importWarning"));
 
       if (confirmOpen) {
         // Apriamo la scheda intera!
@@ -43,13 +41,11 @@ export function RulesManager({ rules, onRulesUpdated }) {
       try {
         const importedRules = JSON.parse(e.target.result);
         if (!Array.isArray(importedRules))
-          throw new Error("Formato non valido");
+          throw new Error(browser.i18n.getMessage("invalidFormat"));
         onRulesUpdated(importedRules);
         event.target.value = null;
       } catch (error) {
-        alert(
-          "Errore caricamento JSON: Il file potrebbe essere corrotto o avere un formato errato.",
-        );
+        alert(browser.i18n.getMessage("importErrorJson"));
       }
     };
     reader.readAsText(file);
@@ -57,13 +53,13 @@ export function RulesManager({ rules, onRulesUpdated }) {
 
   return (
     <fieldset style={{ margin: 0 }}>
-      <legend>Backup & Sync</legend>
+      <legend>{browser.i18n.getMessage("backupAndSync")}</legend>
       <div style={{ display: "flex", gap: "8px" }}>
-        <button onClick={handleExport} title="Salva le regole in un file">
-          💾 Esporta JSON
+        <button onClick={handleExport} title={browser.i18n.getMessage("exportTitle")}>
+          {browser.i18n.getMessage("exportBtn")}
         </button>
-        <button onClick={handleImportClick} title="Carica regole da un file">
-          📁 Importa JSON
+        <button onClick={handleImportClick} title={browser.i18n.getMessage("importTitle")}>
+          {browser.i18n.getMessage("importBtn")}
         </button>
         <input
           type="file"

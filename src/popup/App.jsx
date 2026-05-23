@@ -26,7 +26,7 @@ export function App() {
           : [
               {
                 id: generateId(),
-                name: "Profilo Base",
+                name: browser.i18n.getMessage("newEnvDefault"),
                 rules: [],
                 isCurrent: true,
               },
@@ -62,7 +62,10 @@ export function App() {
 
   // --- 3. GESTIONE DEI PROFILI ---
   const createEnvironment = () => {
-    const newName = prompt("Nome del nuovo ambiente:", "Nuovo Profilo");
+    const newName = prompt(
+      browser.i18n.getMessage("newEnvPrompt"),
+      browser.i18n.getMessage("newEnvDefault"),
+    );
     if (!newName) return;
 
     const newEnv = {
@@ -79,12 +82,12 @@ export function App() {
 
   const deleteCurrentEnvironment = () => {
     if (environments.length <= 1) {
-      alert("Devi mantenere almeno un profilo!");
+      alert(browser.i18n.getMessage("minEnvWarning"));
       return;
     }
 
     const confirmDelete = window.confirm(
-      "Sei sicuro di voler eliminare questo profilo e tutte le sue regole?",
+      browser.i18n.getMessage("deleteEnvConfirm"),
     );
     if (!confirmDelete) return;
 
@@ -162,7 +165,7 @@ export function App() {
       // Normalizziamo le chiavi per tollerare formati leggermente diversi
       const normalized = importedEnvs.map((env) => ({
         id: env.id || env.environmentId || generateId(),
-        name: env.name || env.environmentName || "Profilo Importato",
+        name: env.name || env.environmentName || browser.i18n.getMessage("importedProfile"),
         isCurrent: env.isCurrent !== undefined ? env.isCurrent : false,
         rules: (env.rules || []).map((r) => ({
           id: r.id || generateId(),
@@ -183,10 +186,10 @@ export function App() {
         const activeEnv = normalized.find((e) => e.isCurrent) || normalized[0];
         setCurrentEnvId(activeEnv.id);
         syncNetwork(normalized, isProxyActive);
-        alert("Configurazione importata con successo!");
+        alert(browser.i18n.getMessage("importSuccess"));
       }
     } catch (err) {
-      alert("Errore durante il caricamento del JSON.");
+      alert(browser.i18n.getMessage("importError"));
     }
   };
 
@@ -202,13 +205,13 @@ export function App() {
       {/* BARRA DEL TITOLO CON BOTTONE "ESPANDI" */}
       <div className="title-bar">
         <div className="title-bar-text">
-          DevProxy - Resource Override Alternative
+          getOverHere
         </div>
         <div className="title-bar-controls">
           <button
             aria-label="Maximize"
             onClick={openFullPage}
-            title="Apri in una nuova scheda per importare JSON in sicurezza"
+            title={browser.i18n.getMessage("openInTabTitle")}
           ></button>
         </div>
       </div>
@@ -224,7 +227,7 @@ export function App() {
           }}
         >
           <fieldset style={{ margin: 0 }}>
-            <legend>Stato Master Rete</legend>
+            <legend>{browser.i18n.getMessage("masterState")}</legend>
             <div className="field-row">
               <input
                 type="checkbox"
@@ -243,8 +246,8 @@ export function App() {
                 }}
               >
                 {isProxyActive
-                  ? "✅ OVERRIDE GLOBALE ATTIVO"
-                  : "❌ OVERRIDE GLOBALE SPENTO"}
+                  ? browser.i18n.getMessage("proxyActive")
+                  : browser.i18n.getMessage("proxyInactive")}
               </label>
             </div>
           </fieldset>
@@ -259,13 +262,13 @@ export function App() {
             marginBottom: "12px",
           }}
         >
-          <legend>Gestione Ambienti</legend>
+          <legend>{browser.i18n.getMessage("envManager")}</legend>
           <div
             className="field-row"
             style={{ justifyContent: "space-between" }}
           >
             <div className="field-row">
-              <label>Profilo Selezionato:</label>
+              <label>{browser.i18n.getMessage("selectedProfile")}</label>
               <select
                 value={currentEnvId}
                 onChange={(e) => setCurrentEnvId(e.target.value)}
@@ -273,7 +276,7 @@ export function App() {
               >
                 {environments.map((env) => (
                   <option key={env.id} value={env.id}>
-                    {env.isCurrent ? "⭐ [IN RETE] " : ""}
+                    {env.isCurrent ? browser.i18n.getMessage("inNetworkLabel") : ""}
                     {env.name}
                   </option>
                 ))}
@@ -281,12 +284,12 @@ export function App() {
             </div>
 
             <div style={{ display: "flex", gap: "4px" }}>
-              <button onClick={createEnvironment}>+ Nuovo</button>
+              <button onClick={createEnvironment}>{browser.i18n.getMessage("btnNew")}</button>
               <button
                 onClick={deleteCurrentEnvironment}
                 style={{ color: "#d32f2f" }}
               >
-                Elimina
+                {browser.i18n.getMessage("btnDelete")}
               </button>
             </div>
           </div>
@@ -298,8 +301,8 @@ export function App() {
               style={{ fontWeight: currentEnv.isCurrent ? "normal" : "bold" }}
             >
               {currentEnv.isCurrent
-                ? "✅ Questo Profilo sta attualmente gestendo la rete"
-                : "📡 Imposta questo profilo come ATTIVO sulla Rete"}
+                ? browser.i18n.getMessage("profileIsActive")
+                : browser.i18n.getMessage("profileSetToActive")}
             </button>
           </div>
         </fieldset>
@@ -307,15 +310,15 @@ export function App() {
         {/* SEZIONE REGOLE (DEL PROFILO SELEZIONATO) */}
         <fieldset>
           <legend>
-            Regole di Rete in "{currentEnv.name}" ({currentEnv.rules.length})
+            {browser.i18n.getMessage("networkRules")} "{currentEnv.name}" ({currentEnv.rules.length})
           </legend>
 
           <div style={{ display: "flex", gap: "5px", marginBottom: "10px" }}>
             <button onClick={addEmptyRule} style={{ fontWeight: "bold" }}>
-              + Aggiungi Regola
+              {browser.i18n.getMessage("btnAddRule")}
             </button>
-            <button onClick={() => toggleAllRules(true)}>Accendi Tutte</button>
-            <button onClick={() => toggleAllRules(false)}>Spegni Tutte</button>
+            <button onClick={() => toggleAllRules(true)}>{browser.i18n.getMessage("btnTurnOnAll")}</button>
+            <button onClick={() => toggleAllRules(false)}>{browser.i18n.getMessage("btnTurnOffAll")}</button>
           </div>
 
           <div
@@ -327,7 +330,7 @@ export function App() {
           >
             {currentEnv.rules.length === 0 ? (
               <p style={{ fontStyle: "italic", color: "#666" }}>
-                Nessuna regola presente. Aggiungine una o importa un JSON.
+                {browser.i18n.getMessage("noRulesMsg")}
               </p>
             ) : (
               currentEnv.rules.map((rule) => (
@@ -349,16 +352,16 @@ export function App() {
                     }
                     style={{ width: "90px" }}
                   >
-                    <option value="redirect">Redirect</option>
-                    <option value="cors">CORS</option>
+                    <option value="redirect">{browser.i18n.getMessage("typeRedirect")}</option>
+                    <option value="cors">{browser.i18n.getMessage("typeCors")}</option>
                   </select>
 
                   <div className="field-row" style={{ flexGrow: 1 }}>
-                    <label style={{ width: "20px" }}>Da:</label>
+                    <label style={{ width: "20px" }}>{browser.i18n.getMessage("labelFrom")}</label>
                     <input
                       type="text"
                       value={rule.sourceUrl}
-                      placeholder="es. ||cdn.dominio.com oppure regex"
+                      placeholder={browser.i18n.getMessage("placeholderFrom")}
                       onChange={(e) =>
                         updateRule(rule.id, "sourceUrl", e.target.value)
                       }
@@ -367,14 +370,14 @@ export function App() {
                   </div>
 
                   <div className="field-row" style={{ flexGrow: 1 }}>
-                    <label style={{ width: "20px" }}>A:</label>
+                    <label style={{ width: "20px" }}>{browser.i18n.getMessage("labelTo")}</label>
                     <input
                       type="text"
                       value={rule.targetUrl}
                       placeholder={
                         rule.type === "cors"
-                          ? "(Non serve per CORS)"
-                          : "es. http://localhost:..."
+                          ? browser.i18n.getMessage("placeholderToCors")
+                          : browser.i18n.getMessage("placeholderToRedirect")
                       }
                       onChange={(e) =>
                         updateRule(rule.id, "targetUrl", e.target.value)
@@ -391,14 +394,14 @@ export function App() {
                       onChange={(e) =>
                         updateRule(rule.id, "active", e.target.checked)
                       }
-                      title="Attiva/Disattiva singola regola"
+                      title={browser.i18n.getMessage("toggleRuleTitle")}
                     />
                   </div>
 
                   <button
                     onClick={() => deleteRule(rule.id)}
                     style={{ padding: "2px 8px", fontWeight: "bold" }}
-                    title="Elimina regola"
+                    title={browser.i18n.getMessage("deleteRuleTitle")}
                   >
                     X
                   </button>

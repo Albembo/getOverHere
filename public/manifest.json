@@ -1,18 +1,26 @@
 {
   "manifest_version": 3,
-  "name": "DevProxy - Nativery",
+  "name": "getOverHere - Resource override plugin",
   "version": "1.0.0",
+  "default_locale": "it",
   "description": "Dynamic CORS & Redirect manager with a retro vibe.",
-  "permissions": ["declarativeNetRequest", "storage"],
-  "host_permissions": ["<all_urls>"],
+  "permissions": [
+    "declarativeNetRequest",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "background": {
     "service_worker": "assets/background.js",
-    "scripts": ["assets/background.js"],
+    "scripts": [
+      "assets/background.js"
+    ],
     "type": "module"
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "devproxy@nativery.com",
+      "id": "getoverhere@albembo.com",
       "strict_min_version": "109.0"
     }
   },
