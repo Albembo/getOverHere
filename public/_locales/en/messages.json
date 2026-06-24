@@ -40,5 +40,33 @@
   "placeholderToCors": { "message": "(Not needed for CORS)" },
   "placeholderToRedirect": { "message": "e.g., http://localhost:..." },
   "toggleRuleTitle": { "message": "Toggle single rule" },
-  "deleteRuleTitle": { "message": "Delete rule" }
+  "deleteRuleTitle": { "message": "Delete rule" },
+
+  "tabNetworkRules": { "message": "Network Rules" },
+  "tabResponseMocks": { "message": "Response Mocks" },
+
+  "btnAddMock": { "message": "+ Add Mock" },
+  "mockName": { "message": "Mock Name" },
+  "mockUrlPattern": { "message": "URL Pattern" },
+  "mockMethod": { "message": "Method" },
+  "mockMethodAny": { "message": "ANY" },
+  "mockStatusCode": { "message": "Status Code" },
+  "mockResponseHeaders": { "message": "Response Headers" },
+  "mockResponseBody": { "message": "Response Body" },
+  "mockPlaceholderUrl": { "message": "e.g., https://api.example.com/*" },
+  "mockPlaceholderBody": { "message": "{ \"key\": \"value\" }" },
+
+  "btnSave": { "message": "Save" },
+  "btnCancel": { "message": "Cancel" },
+  "btnEdit": { "message": "Edit" },
+  "btnDelete": { "message": "Delete" },
+
+  "addHeader": { "message": "+ Add Header" },
+  "headerName": { "message": "Name" },
+  "headerValue": { "message": "Value" },
+  "removeHeader": { "message": "Remove" },
+
+  "noMocksMsg": { "message": "No mocks configured. Add one to start mocking API responses." },
+  "toggleMockTitle": { "message": "Enable/disable this mock" },
+  "mockDeleteConfirm": { "message": "Are you sure you want to delete this mock?" }
 }

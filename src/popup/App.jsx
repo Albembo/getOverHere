@@ -1,25 +1,20 @@
 import { useState, useEffect } from "preact/hooks";
 import browser from "webextension-polyfill";
 import { RulesManager } from "./RulesManager.jsx";
+import { MockManager } from "./MockManager.jsx";
+import "./popup.css";
 
-// Utility: Generatore rapido di ID univoci
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 export function App() {
-  // --- STATO GLOBALE ---
-  // Array di tutti i profili salvati
   const [environments, setEnvironments] = useState([]);
-
-  // ID del profilo attualmente selezionato nel menu a tendina (per visualizzarne le regole)
   const [currentEnvId, setCurrentEnvId] = useState(null);
-
-  // Interruttore Master della Rete
   const [isProxyActive, setIsProxyActive] = useState(false);
+  const [activeTab, setActiveTab] = useState("rules");
+  const [mocks, setMocks] = useState([]);
 
-  // --- 1. INIZIALIZZAZIONE ---
   useEffect(() => {
-    browser.storage.local.get(["environments", "proxyStatus"]).then((res) => {
-      // Se non ci sono ambienti salvati, ne creiamo uno di base
+    browser.storage.local.get(["environments", "proxyStatus", "mocks"]).then((res) => {
       const loadedEnvs =
         res.environments && res.environments.length > 0
           ? res.environments
@@ -33,17 +28,14 @@ export function App() {
             ];
 
       setEnvironments(loadedEnvs);
+      setMocks(res.mocks || []);
       setIsProxyActive(res.proxyStatus !== undefined ? res.proxyStatus : false);
 
-      // Impostiamo la visualizzazione sull'ambiente "isCurrent" (quello attivo in rete)
-      const activeEnv =
-        loadedEnvs.find((env) => env.isCurrent) || loadedEnvs[0];
+      const activeEnv = loadedEnvs.find((env) => env.isCurrent) || loadedEnvs[0];
       setCurrentEnvId(activeEnv.id);
     });
   }, []);
 
-  // --- 2. MOTORE DI RETE ---
-  // Salva nello storage e manda al background SOLO le regole dell'ambiente "isCurrent"
   const syncNetwork = async (envs, proxyState) => {
     await browser.storage.local.set({
       environments: envs,
@@ -51,7 +43,6 @@ export function App() {
     });
 
     const activeEnv = envs.find((e) => e.isCurrent);
-    // Se l'interruttore Master è acceso e c'è un ambiente attivo, prendi quelle regole. Altrimenti array vuoto.
     const rulesToApply = proxyState && activeEnv ? activeEnv.rules : [];
 
     await browser.runtime.sendMessage({
@@ -60,7 +51,15 @@ export function App() {
     });
   };
 
-  // --- 3. GESTIONE DEI PROFILI ---
+  const syncMocks = async (newMocks) => {
+    setMocks(newMocks);
+    await browser.storage.local.set({ mocks: newMocks });
+    await browser.runtime.sendMessage({
+      action: "UPDATE_MOCKS",
+      mocks: newMocks,
+    });
+  };
+
   const createEnvironment = () => {
     const newName = prompt(
       browser.i18n.getMessage("newEnvPrompt"),
@@ -76,7 +75,7 @@ export function App() {
     };
     const updated = [...environments, newEnv];
     setEnvironments(updated);
-    setCurrentEnvId(newEnv.id); // Lo mostriamo subito
+    setCurrentEnvId(newEnv.id);
     syncNetwork(updated, isProxyActive);
   };
 
@@ -93,11 +92,8 @@ export function App() {
 
     const updated = environments.filter((e) => e.id !== currentEnvId);
     setEnvironments(updated);
-
-    // Selezioniamo il primo disponibile come fallback
     setCurrentEnvId(updated[0].id);
 
-    // Se abbiamo eliminato quello attivo sulla rete, passiamo la corona al fallback
     if (environments.find((e) => e.id === currentEnvId)?.isCurrent) {
       updated[0].isCurrent = true;
     }
@@ -105,7 +101,6 @@ export function App() {
     syncNetwork(updated, isProxyActive);
   };
 
-  // Imposta il profilo attualmente visualizzato come "Quello che decide le regole di rete"
   const setAsActiveNetworkProfile = () => {
     const updated = environments.map((env) => ({
       ...env,
@@ -115,8 +110,6 @@ export function App() {
     syncNetwork(updated, isProxyActive);
   };
 
-  // --- 4. GESTIONE DELLE SINGOLE REGOLE ---
-  // Lavoriamo sempre e solo sulle regole dell'ambiente attualmente visualizzato nel dropdown
   const currentEnv =
     environments.find((e) => e.id === currentEnvId) || environments[0];
 
@@ -159,10 +152,8 @@ export function App() {
     updateCurrentEnvRules(updatedRules);
   };
 
-  // --- 5. IMPORTAZIONE & UTILITIES ---
   const handleImport = (importedEnvs) => {
     try {
-      // Normalizziamo le chiavi per tollerare formati leggermente diversi
       const normalized = importedEnvs.map((env) => ({
         id: env.id || env.environmentId || generateId(),
         name: env.name || env.environmentName || browser.i18n.getMessage("importedProfile"),
@@ -177,7 +168,6 @@ export function App() {
       }));
 
       if (normalized.length > 0) {
-        // Garantiamo che ci sia almeno un profilo corrente
         if (!normalized.some((e) => e.isCurrent)) {
           normalized[0].isCurrent = true;
         }
@@ -194,222 +184,220 @@ export function App() {
   };
 
   const openFullPage = () => {
-    // Apri l'estensione in una nuova scheda per gestire file senza crash
     browser.tabs.create({ url: browser.runtime.getURL("index.html") });
   };
 
-  if (!currentEnv) return null; // Prevenzione errori di render iniziali
+  if (!currentEnv) return null;
 
   return (
-    <div className="window" style={{ height: "100%", boxSizing: "border-box" }}>
-      {/* BARRA DEL TITOLO CON BOTTONE "ESPANDI" */}
-      <div className="title-bar">
-        <div className="title-bar-text">
-          getOverHere
-        </div>
-        <div className="title-bar-controls">
+    <div className="app-window">
+      <div className="title-bar-modern">
+        <span>getOverHere</span>
+        <div className="title-controls">
           <button
-            aria-label="Maximize"
             onClick={openFullPage}
             title={browser.i18n.getMessage("openInTabTitle")}
-          ></button>
+          >
+            ⛶
+          </button>
         </div>
       </div>
 
-      <div className="window-body">
-        {/* BARRA SUPERIORE: STATO GLOBALE E IMPORT/EXPORT */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: "10px",
-          }}
+      <div className="tab-bar">
+        <button
+          className={`tab ${activeTab === "rules" ? "active" : ""}`}
+          onClick={() => setActiveTab("rules")}
         >
-          <fieldset style={{ margin: 0 }}>
-            <legend>{browser.i18n.getMessage("masterState")}</legend>
-            <div className="field-row">
-              <input
-                type="checkbox"
-                id="enable-proxy"
-                checked={isProxyActive}
-                onChange={(e) => {
-                  setIsProxyActive(e.target.checked);
-                  syncNetwork(environments, e.target.checked);
-                }}
-              />
-              <label
-                htmlFor="enable-proxy"
-                style={{
-                  fontWeight: "bold",
-                  color: isProxyActive ? "green" : "black",
-                }}
-              >
-                {isProxyActive
-                  ? browser.i18n.getMessage("proxyActive")
-                  : browser.i18n.getMessage("proxyInactive")}
-              </label>
-            </div>
-          </fieldset>
-
-          <RulesManager rules={environments} onRulesUpdated={handleImport} />
-        </div>
-
-        {/* SEZIONE PROFILI (AMBIENTI) */}
-        <fieldset
-          style={{
-            backgroundColor: currentEnv.isCurrent ? "#e6ffe6" : "transparent",
-            marginBottom: "12px",
-          }}
+          🌐 {browser.i18n.getMessage("tabNetworkRules")}
+        </button>
+        <button
+          className={`tab ${activeTab === "mocks" ? "active" : ""}`}
+          onClick={() => setActiveTab("mocks")}
         >
-          <legend>{browser.i18n.getMessage("envManager")}</legend>
-          <div
-            className="field-row"
-            style={{ justifyContent: "space-between" }}
-          >
-            <div className="field-row">
-              <label>{browser.i18n.getMessage("selectedProfile")}</label>
-              <select
-                value={currentEnvId}
-                onChange={(e) => setCurrentEnvId(e.target.value)}
-                style={{ width: "250px" }}
-              >
-                {environments.map((env) => (
-                  <option key={env.id} value={env.id}>
-                    {env.isCurrent ? browser.i18n.getMessage("inNetworkLabel") : ""}
-                    {env.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          🧪 {browser.i18n.getMessage("tabResponseMocks")}
+        </button>
+      </div>
 
-            <div style={{ display: "flex", gap: "4px" }}>
-              <button onClick={createEnvironment}>{browser.i18n.getMessage("btnNew")}</button>
-              <button
-                onClick={deleteCurrentEnvironment}
-                style={{ color: "#d32f2f" }}
-              >
-                {browser.i18n.getMessage("btnDelete")}
-              </button>
-            </div>
-          </div>
-
-          <div style={{ marginTop: "10px" }}>
-            <button
-              disabled={currentEnv.isCurrent}
-              onClick={setAsActiveNetworkProfile}
-              style={{ fontWeight: currentEnv.isCurrent ? "normal" : "bold" }}
-            >
-              {currentEnv.isCurrent
-                ? browser.i18n.getMessage("profileIsActive")
-                : browser.i18n.getMessage("profileSetToActive")}
-            </button>
-          </div>
-        </fieldset>
-
-        {/* SEZIONE REGOLE (DEL PROFILO SELEZIONATO) */}
-        <fieldset>
-          <legend>
-            {browser.i18n.getMessage("networkRules")} "{currentEnv.name}" ({currentEnv.rules.length})
-          </legend>
-
-          <div style={{ display: "flex", gap: "5px", marginBottom: "10px" }}>
-            <button onClick={addEmptyRule} style={{ fontWeight: "bold" }}>
-              {browser.i18n.getMessage("btnAddRule")}
-            </button>
-            <button onClick={() => toggleAllRules(true)}>{browser.i18n.getMessage("btnTurnOnAll")}</button>
-            <button onClick={() => toggleAllRules(false)}>{browser.i18n.getMessage("btnTurnOffAll")}</button>
-          </div>
-
-          <div
-            style={{
-              maxHeight: "300px",
-              overflowY: "auto",
-              overflowX: "hidden",
-            }}
-          >
-            {currentEnv.rules.length === 0 ? (
-              <p style={{ fontStyle: "italic", color: "#666" }}>
-                {browser.i18n.getMessage("noRulesMsg")}
-              </p>
-            ) : (
-              currentEnv.rules.map((rule) => (
-                <div
-                  key={rule.id}
-                  style={{
-                    display: "flex",
-                    gap: "8px",
-                    marginBottom: "8px",
-                    alignItems: "center",
-                    background: rule.active ? "transparent" : "#d4d4d4",
-                    padding: "4px",
-                  }}
-                >
-                  <select
-                    value={rule.type}
-                    onChange={(e) =>
-                      updateRule(rule.id, "type", e.target.value)
-                    }
-                    style={{ width: "90px" }}
-                  >
-                    <option value="redirect">{browser.i18n.getMessage("typeRedirect")}</option>
-                    <option value="cors">{browser.i18n.getMessage("typeCors")}</option>
-                  </select>
-
-                  <div className="field-row" style={{ flexGrow: 1 }}>
-                    <label style={{ width: "20px" }}>{browser.i18n.getMessage("labelFrom")}</label>
-                    <input
-                      type="text"
-                      value={rule.sourceUrl}
-                      placeholder={browser.i18n.getMessage("placeholderFrom")}
-                      onChange={(e) =>
-                        updateRule(rule.id, "sourceUrl", e.target.value)
-                      }
-                      style={{ width: "100%" }}
-                    />
-                  </div>
-
-                  <div className="field-row" style={{ flexGrow: 1 }}>
-                    <label style={{ width: "20px" }}>{browser.i18n.getMessage("labelTo")}</label>
-                    <input
-                      type="text"
-                      value={rule.targetUrl}
-                      placeholder={
-                        rule.type === "cors"
-                          ? browser.i18n.getMessage("placeholderToCors")
-                          : browser.i18n.getMessage("placeholderToRedirect")
-                      }
-                      onChange={(e) =>
-                        updateRule(rule.id, "targetUrl", e.target.value)
-                      }
-                      disabled={rule.type === "cors"}
-                      style={{ width: "100%" }}
-                    />
-                  </div>
-
-                  <div className="field-row" style={{ marginLeft: "5px" }}>
+      <div className="window-body-modern">
+        {activeTab === "rules" ? (
+          <>
+            {/* HEADER: MASTER TOGGLE + IMPORT/EXPORT */}
+            <div className="flex-between">
+              <fieldset className="modern-fieldset" style={{ flex: 1, marginRight: "10px" }}>
+                <legend>{browser.i18n.getMessage("masterState")}</legend>
+                <div className="master-state">
+                  <label className="toggle-switch">
                     <input
                       type="checkbox"
-                      checked={rule.active}
-                      onChange={(e) =>
-                        updateRule(rule.id, "active", e.target.checked)
-                      }
-                      title={browser.i18n.getMessage("toggleRuleTitle")}
+                      checked={isProxyActive}
+                      onChange={(e) => {
+                        setIsProxyActive(e.target.checked);
+                        syncNetwork(environments, e.target.checked);
+                      }}
                     />
-                  </div>
+                    <span className="toggle-slider"></span>
+                  </label>
+                  <span className={`master-label ${isProxyActive ? "active" : "inactive"}`}>
+                    {isProxyActive
+                      ? browser.i18n.getMessage("proxyActive")
+                      : browser.i18n.getMessage("proxyInactive")}
+                  </span>
+                </div>
+              </fieldset>
 
-                  <button
-                    onClick={() => deleteRule(rule.id)}
-                    style={{ padding: "2px 8px", fontWeight: "bold" }}
-                    title={browser.i18n.getMessage("deleteRuleTitle")}
+              <RulesManager rules={environments} onRulesUpdated={handleImport} />
+            </div>
+
+            {/* ENVIRONMENT MANAGER */}
+            <fieldset
+              className="modern-fieldset"
+              style={{
+                background: currentEnv.isCurrent ? "var(--accent-lighter)" : "var(--surface)",
+                borderColor: currentEnv.isCurrent ? "var(--accent-border)" : "var(--border)",
+              }}
+            >
+              <legend>{browser.i18n.getMessage("envManager")}</legend>
+
+              <div className="flex-between">
+                <div className="flex-row">
+                  <label className="inline-label">{browser.i18n.getMessage("selectedProfile")}</label>
+                  <select
+                    className="select-modern"
+                    value={currentEnvId}
+                    onChange={(e) => setCurrentEnvId(e.target.value)}
+                    style={{ width: "250px" }}
                   >
-                    X
+                    {environments.map((env) => (
+                      <option key={env.id} value={env.id}>
+                        {env.isCurrent ? browser.i18n.getMessage("inNetworkLabel") : ""}
+                        {env.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex-row">
+                  <button className="btn btn-primary" onClick={createEnvironment}>
+                    {browser.i18n.getMessage("btnNew")}
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    onClick={deleteCurrentEnvironment}
+                  >
+                    {browser.i18n.getMessage("btnDelete")}
                   </button>
                 </div>
-              ))
-            )}
-          </div>
-        </fieldset>
+              </div>
+
+              <div className="mt-6">
+                <button
+                  className={`btn ${currentEnv.isCurrent ? "" : "btn-success"}`}
+                  disabled={currentEnv.isCurrent}
+                  onClick={setAsActiveNetworkProfile}
+                >
+                  {currentEnv.isCurrent
+                    ? browser.i18n.getMessage("profileIsActive")
+                    : browser.i18n.getMessage("profileSetToActive")}
+                </button>
+              </div>
+            </fieldset>
+
+            {/* NETWORK RULES */}
+            <fieldset className="modern-fieldset" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+              <legend>
+                {browser.i18n.getMessage("networkRules")} "{currentEnv.name}" ({currentEnv.rules.length})
+              </legend>
+
+              <div className="flex-row mb-6">
+                <button className="btn btn-primary" onClick={addEmptyRule}>
+                  {browser.i18n.getMessage("btnAddRule")}
+                </button>
+                <button className="btn btn-sm btn-success" onClick={() => toggleAllRules(true)}>
+                  {browser.i18n.getMessage("btnTurnOnAll")}
+                </button>
+                <button className="btn btn-sm btn-danger" onClick={() => toggleAllRules(false)}>
+                  {browser.i18n.getMessage("btnTurnOffAll")}
+                </button>
+              </div>
+
+              <div className="scroll-area">
+                {currentEnv.rules.length === 0 ? (
+                  <div className="empty-state">
+                    {browser.i18n.getMessage("noRulesMsg")}
+                  </div>
+                ) : (
+                  currentEnv.rules.map((rule) => (
+                    <div
+                      key={rule.id}
+                      className={`rule-row ${rule.active ? "" : "inactive"} fade-in`}
+                    >
+                      <select
+                        className="select-modern"
+                        value={rule.type}
+                        onChange={(e) => updateRule(rule.id, "type", e.target.value)}
+                        style={{ width: "90px" }}
+                      >
+                        <option value="redirect">{browser.i18n.getMessage("typeRedirect")}</option>
+                        <option value="cors">{browser.i18n.getMessage("typeCors")}</option>
+                      </select>
+
+                      <div className="flex-row flex-1">
+                        <label className="inline-label" style={{ width: "auto", minWidth: "20px" }}>From:</label>
+                        <input
+                          className="input-modern"
+                          type="text"
+                          value={rule.sourceUrl}
+                          placeholder={browser.i18n.getMessage("placeholderFrom")}
+                          onChange={(e) => updateRule(rule.id, "sourceUrl", e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                      </div>
+
+                      <div className="flex-row flex-1">
+                        <label className="inline-label" style={{ width: "auto", minWidth: "20px" }}>To:</label>
+                        <input
+                          className="input-modern"
+                          type="text"
+                          value={rule.targetUrl}
+                          placeholder={
+                            rule.type === "cors"
+                              ? browser.i18n.getMessage("placeholderToCors")
+                              : browser.i18n.getMessage("placeholderToRedirect")
+                          }
+                          onChange={(e) => updateRule(rule.id, "targetUrl", e.target.value)}
+                          disabled={rule.type === "cors"}
+                          style={{ flex: 1 }}
+                        />
+                      </div>
+
+                      <label className="toggle-switch" title={browser.i18n.getMessage("toggleRuleTitle")}>
+                        <input
+                          type="checkbox"
+                          checked={rule.active}
+                          onChange={(e) => updateRule(rule.id, "active", e.target.checked)}
+                        />
+                        <span className="toggle-slider"></span>
+                      </label>
+
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => deleteRule(rule.id)}
+                        title={browser.i18n.getMessage("deleteRuleTitle")}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </fieldset>
+          </>
+        ) : (
+          <MockManager
+            mocks={mocks}
+            onUpdate={syncMocks}
+          />
+        )}
       </div>
     </div>
   );

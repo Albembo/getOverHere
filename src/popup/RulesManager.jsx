@@ -17,18 +17,15 @@ export function RulesManager({ rules, onRulesUpdated }) {
   };
 
   const handleImportClick = () => {
-    // TRUCCO UX: Se la finestra è più stretta di 780px, siamo nel micro-popup del browser.
     if (window.innerWidth < 780) {
       const confirmOpen = window.confirm(browser.i18n.getMessage("importWarning"));
 
       if (confirmOpen) {
-        // Apriamo la scheda intera!
         browser.tabs.create({ url: browser.runtime.getURL("index.html") });
       }
-      return; // Blocchiamo l'apertura del file picker qui nel popup
+      return;
     }
 
-    // Se siamo già nella scheda intera, apriamo il file picker tranquillamente
     fileInputRef.current.click();
   };
 
@@ -52,13 +49,13 @@ export function RulesManager({ rules, onRulesUpdated }) {
   };
 
   return (
-    <fieldset style={{ margin: 0 }}>
+    <fieldset className="modern-fieldset" style={{ margin: 0 }}>
       <legend>{browser.i18n.getMessage("backupAndSync")}</legend>
-      <div style={{ display: "flex", gap: "8px" }}>
-        <button onClick={handleExport} title={browser.i18n.getMessage("exportTitle")}>
+      <div className="flex-row">
+        <button className="btn btn-sm" onClick={handleExport} title={browser.i18n.getMessage("exportTitle")}>
           {browser.i18n.getMessage("exportBtn")}
         </button>
-        <button onClick={handleImportClick} title={browser.i18n.getMessage("importTitle")}>
+        <button className="btn btn-sm" onClick={handleImportClick} title={browser.i18n.getMessage("importTitle")}>
           {browser.i18n.getMessage("importBtn")}
         </button>
         <input
