@@ -1,16 +1,13 @@
 import browser from "webextension-polyfill";
 
-// 🧠 TRADUTTORE WILDCARD
+const MOCK_ID_OFFSET = 1000;
+
 const parseWildcards = (source, target) => {
   if (!source) return { regexFilter: ".*", regexSubstitution: target };
 
-  // Escape dei caratteri speciali tranne l'asterisco
   const escapedSource = source.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
-
-  // Trasforma l'asterisco in un gruppo di cattura
   const regexFilter = "^" + escapedSource.replace(/\*/g, "(.*)") + "$";
 
-  // Mappa gli asterischi target nei riferimenti regex (\1, \2...)
   let regexSubstitution = target || "";
   let matchCount = 1;
   while (regexSubstitution.includes("*")) {
@@ -21,20 +18,30 @@ const parseWildcards = (source, target) => {
   return { regexFilter, regexSubstitution };
 };
 
+const buildDataUri = (mock) => {
+  const contentType = (mock.responseHeaders || [])
+    .find((h) => h.name.toLowerCase() === "content-type")?.value || "text/plain";
+  const encoded = btoa(unescape(encodeURIComponent(mock.responseBody || "")));
+  return `data:${contentType};base64,${encoded}`;
+};
+
 browser.runtime.onMessage.addListener(async (request) => {
   if (request.action === "UPDATE_RULES") {
     try {
       const existingRules =
         await browser.declarativeNetRequest.getDynamicRules();
-      const existingRuleIds = existingRules.map((rule) => rule.id);
+      const networkRuleIds = existingRules
+        .filter((r) => r.id < MOCK_ID_OFFSET)
+        .map((r) => r.id);
 
       const newRules = request.rules
         .filter((r) => r.active)
+        .filter((r) => r.type === "cors" || r.type === "redirect")
         .map((rule, index) => {
           const id = index + 1;
 
           if (rule.type === "cors") {
-            console.log(`[CORS] Registrata: ${rule.sourceUrl}`);
+            console.log(`[CORS] ${rule.sourceUrl}`);
             return {
               id,
               priority: 1,
@@ -55,34 +62,66 @@ browser.runtime.onMessage.addListener(async (request) => {
             };
           }
 
-          if (rule.type === "redirect") {
-            const { regexFilter, regexSubstitution } = parseWildcards(
-              rule.sourceUrl,
-              rule.targetUrl,
-            );
-            console.log(
-              `[REDIRECT] Tradotto: ${rule.sourceUrl} ---> Regex: ${regexFilter} | Target: ${regexSubstitution}`,
-            );
+          const { regexFilter, regexSubstitution } = parseWildcards(
+            rule.sourceUrl,
+            rule.targetUrl,
+          );
+          console.log(`[REDIRECT] ${rule.sourceUrl} -> ${regexFilter} | ${regexSubstitution}`);
 
-            return {
-              id,
-              priority: 2,
-              action: { type: "redirect", redirect: { regexSubstitution } },
-              condition: {
-                regexFilter,
-                resourceTypes: ["script", "xmlhttprequest", "sub_frame"],
-              },
-            };
-          }
+          return {
+            id,
+            priority: 2,
+            action: { type: "redirect", redirect: { regexSubstitution } },
+            condition: {
+              regexFilter,
+              resourceTypes: ["script", "xmlhttprequest", "sub_frame"],
+            },
+          };
         });
 
       await browser.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: existingRuleIds,
+        removeRuleIds: networkRuleIds,
         addRules: newRules,
       });
 
       return { success: true };
     } catch (error) {
+      console.error("[UPDATE_RULES]", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  if (request.action === "UPDATE_MOCKS") {
+    try {
+      const existingRules =
+        await browser.declarativeNetRequest.getDynamicRules();
+      const mockRuleIds = existingRules
+        .filter((r) => r.id >= MOCK_ID_OFFSET)
+        .map((r) => r.id);
+
+      const newMockRules = (request.mocks || [])
+        .filter((m) => m.active && m.sourceUrl)
+        .map((mock, index) => ({
+          id: MOCK_ID_OFFSET + index,
+          priority: 3,
+          action: {
+            type: "redirect",
+            redirect: { url: buildDataUri(mock) },
+          },
+          condition: {
+            urlFilter: mock.sourceUrl,
+            resourceTypes: ["xmlhttprequest", "sub_frame"],
+          },
+        }));
+
+      await browser.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: mockRuleIds,
+        addRules: newMockRules,
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("[UPDATE_MOCKS]", error);
       return { success: false, error: error.message };
     }
   }
